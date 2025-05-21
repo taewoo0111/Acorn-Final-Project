@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.FinalProject.mapper.PostMapper">
+
+	  <!-- 검색조건 공통 SQL -->
+	  <sql id="search">
+		  <where>
+		    <choose>
+		      <when test="condition == 'writer' and keyword != ''">
+		        AND writer LIKE '%' || #{keyword} || '%'
+		      </when>
+		      <when test="condition == 'title' and keyword != ''">
+		        AND title LIKE '%' || #{keyword} || '%'
+		      </when>
+		      <when test="condition == 'all' and keyword != ''">
+		        AND (writer LIKE '%' || #{keyword} || '%' 
+		             OR title  LIKE '%' || #{keyword} || '%')
+		      </when>
+		    </choose>
+		  </where>
+		</sql>
+	
+	  <!--전체 공지사항 수 조회 -->
+	  <select id="getPostCount" parameterType="PostDto" resultType="int">
+	    SELECT COUNT(*)
+	    FROM tb_post
+	    <include refid="search" />
+	  </select>
+	
+	  <!-- 2) 공지사항 리스트 조회 (검색 + 페이징) -->
+	  <select id="getPostList" parameterType="PostDto" resultType="PostDto">
+	    SELECT *
+	    FROM (
+	      SELECT ROWNUM AS rnum, p.*
+	      FROM (
+	        SELECT
+	          post_id AS postId,
+	          title,
+	          writer,
+	          TO_CHAR(cre_date, 'YYYY-MM-DD') AS creDate
+	        FROM tb_post
+	        <include refid="search" />
+	        ORDER BY post_id DESC
+	      ) p
+	    )
+	    WHERE rnum BETWEEN #{startRowNum} AND #{endRowNum}
+	  </select>
+	
+	  <!-- 공지사항 등록 -->
+	  <insert id="insertPost" parameterType="PostDto">
+	    INSERT INTO tb_post (
+	      post_id,
+	      title,
+	      writer,
+	      content,
+	      upload_file,
+	      cre_date
+	    ) VALUES (
+	      seq_post_id.NEXTVAL,
+	      #{title},
+	      #{writer},
+	      #{content},
+	      #{uploadFile, jdbcType=CLOB},
+	      SYSDATE
+	    )
+	  </insert>
+	
+	  <!-- 공지사항 수정 -->
+	  <update id="updatePost" parameterType="PostDto">
+		  UPDATE tb_post
+		  <set>
+		    title   = #{title},
+		    content = #{content, jdbcType=CLOB},
+		    <if test="uploadFile != null">
+		      upload_file = #{uploadFile, jdbcType=CLOB},
+		    </if>
+		    edit_date = SYSDATE
+		  </set>
+		  WHERE post_id = #{postId}
+		</update>
+	
+	  <!-- 공지사항 삭제 -->
+	  <delete id="deletePost" parameterType="int">
+	    DELETE FROM tb_post
+	    WHERE post_id = #{postId}
+	  </delete>
+	
+	  <!-- 공지사항 상세 조회 -->
+	  <select id="getPostData" parameterType="int" resultType="PostDto">
+	    SELECT
+	      post_id AS postId,
+	      title,
+	      writer,
+	      content,
+	      TO_CHAR(cre_date, 'YYYY-MM-DD') AS creDate,
+	      TO_CHAR(edit_date, 'YYYY-MM-DD') AS editDate,
+	      upload_file AS uploadFile
+	    FROM tb_post
+	    WHERE post_id = #{postId}
+	  </select>
+
+</mapper>

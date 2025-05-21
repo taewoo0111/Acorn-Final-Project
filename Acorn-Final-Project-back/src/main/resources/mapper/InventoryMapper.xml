@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.FinalProject.mapper.InventoryMapper">
+	
+	<!-- 재고 현황 리스트의 카테고리 목록 -->
+	<select id="getCategory" resultType="String">
+		SELECT CD_CATEGORY 
+		FROM TB_PRODUCT
+		GROUP BY CD_CATEGORY 
+	</select>
+	
+	<!-- 품목 별 재고 현황 조회 -->
+	<select id="getInv"
+        parameterType="com.example.FinalProject.dto.EuInventoryListDto"
+        resultType="com.example.FinalProject.dto.EuInventoryDto">
+	    SELECT 
+	      P.CD_CATEGORY,
+	      I.PRODUCT_ID,
+	      P.PRODUCT_NAME,
+	      SUM(I.INV_PLUS) - SUM(I.INV_MINUS) AS QTY
+	    FROM TB_INVENTORY I
+	    JOIN TB_PRODUCT P ON I.PRODUCT_ID = P.PRODUCT_ID
+	    <where>
+	      <if test="condition == 'ctg'">
+	        P.CD_CATEGORY = #{keyword}
+	      </if>
+	      <if test="condition == 'pname'">
+	        LOWER(P.PRODUCT_NAME) LIKE '%' || LOWER(#{keyword}) || '%'
+	      </if>
+	      <if test="condition == 'pid'">
+	        P.PRODUCT_ID = #{keyId}
+	      </if>
+	    </where>
+	    GROUP BY I.PRODUCT_ID, P.PRODUCT_NAME, P.CD_CATEGORY
+	    ORDER BY P.PRODUCT_NAME ASC
+	</select>
+	
+	<!-- 특정 품목의 사용 기록 조회 -->
+	<select id="getInvDetail"
+		parameterType="com.example.FinalProject.dto.EuInventoryDetailListDto"
+		resultType="com.example.FinalProject.dto.EuInventoryDetailDto">
+			SELECT PRODUCT_ID, 
+				INV_ID, 
+				INV_DATE, 
+				INV_PLUS, 
+				INV_MINUS
+			FROM TB_INVENTORY
+			WHERE PRODUCT_ID = #{pId}
+			   AND INV_DATE BETWEEN TO_DATE(#{strDate} || ' 00:00:00', 'YYYY-MM-DD HH24:MI:SS') 
+			   AND TO_DATE(#{endDate} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+			ORDER BY INV_DATE ASC, INV_ID ASC
+	</select>
+	
+	
+	
+	<!-- 입고 및 사용 내역 추가 (+,-) -->
+	<insert id="addInvDetail" 
+		parameterType="com.example.FinalProject.dto.EuInventoryDetailDto">
+		INSERT INTO TB_INVENTORY
+		(INV_ID, USER_ID, PRODUCT_ID, INV_DATE, INV_PLUS, INV_MINUS )
+		VALUES(SEQ_INV_ID.NEXTVAL, #{userId}, #{productId}, TO_DATE(#{invDate}, 'YYYY-MM-DD'),
+		<choose>
+            <when test="div > 0">
+                #{invPlus}, 0
+            </when>
+            <otherwise>
+                0, #{invMinus}
+            </otherwise>
+        </choose>
+		)
+	</insert>
+	
+	<!-- 수정을 위해 해당 재고 기록 하나의 세부 내용 가져오기 -->
+	<select id="getInvDetailOne"
+		parameterType="int"
+		resultType="com.example.FinalProject.dto.EuInventoryDetailDto">
+		SELECT I.PRODUCT_ID, PRODUCT_NAME, INV_DATE, INV_PLUS, INV_MINUS, INV_ID 
+		FROM TB_INVENTORY I
+		JOIN TB_PRODUCT P ON I.PRODUCT_ID = P.PRODUCT_ID 
+		WHERE INV_ID = #{invId}
+	</select>
+	
+	<!-- 입고 및 사용 내역 수정 (+,-) -->
+	<update id="editInvDetail"
+		parameterType="com.example.FinalProject.dto.EuInventoryDetailDto">
+		UPDATE TB_INVENTORY
+		SET INV_DATE = TO_DATE(#{invDate}, 'YYYY-MM-DD'), 
+		<choose>
+			<when test="div > 0">
+				INV_PLUS=#{invPlus}, INV_MINUS=0
+			</when>
+			<otherwise>
+				INV_PLUS=0, INV_MINUS=#{invMinus}
+			</otherwise>
+		</choose>
+		WHERE INV_ID = #{invId}
+	</update>
+	
+	<!-- 입고 및 사용 내역 삭제  -->
+	<delete id="deleteInvDetail"
+		parameterType="int">
+		DELETE FROM TB_INVENTORY
+		WHERE INV_ID = #{invId}
+	</delete>
+	
+	<!-- 품목 코드 입력했을 때 품목명 찾아오기 -->
+	<select id="getPnameToPid"
+		parameterType="int"
+		resultType="String">
+		SELECT PRODUCT_NAME
+		FROM TB_PRODUCT
+		WHERE PRODUCT_ID = #{pid}
+	</select>
+	
+	<!-- 품목명 입력 했을 때 품목 아이디 찾아오기 -->
+	<select id="getPidToPname"
+		parameterType="String"
+		resultType="int">
+		SELECT PRODUCT_ID 
+		FROM TB_PRODUCT
+		WHERE PRODUCT_NAME = #{pname}
+	</select>
+	
+</mapper>

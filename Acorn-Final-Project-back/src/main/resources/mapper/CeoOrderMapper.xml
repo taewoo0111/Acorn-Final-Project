@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.FinalProject.mapper.CeoOrderMapper">
+	<!-- 본사 발주 내역 리스트 검색조건 -->
+	<sql id="orderCondition">
+		<where>
+			<!-- 본사 발주 내역 리스트 동적 검색조건 : 지점명, 발주 내역 상태, 시작~끝 날짜, 발주자 -->
+			<if test="storeName != null and storeName !=''">
+				 store_name LIKE '%' || #{storeName} || '%'
+			</if>
+			<if test="cdStatus != null and cdStatus !=''">
+				AND cd_status = #{cdStatus}
+			</if>
+			<!-- 시작날짜 ~ 끝날짜 -->
+			<if test="startDate != null and startDate != '' and endDate != null and endDate != ''">
+			    AND TRUNC(tb_order.ord_date) &gt;= TO_DATE(#{startDate}, 'YYYY-MM-DD')
+			    AND TRUNC(tb_order.ord_date) &lt;= TO_DATE(#{endDate}, 'YYYY-MM-DD')
+			</if>
+			<!-- 발주자 -->
+			<if test="orderName != null and orderName !=''">
+				AND order_name LIKE '%'|| #{orderName} || '%'
+			</if>	
+		</where>
+	</sql>
+	
+	<!-- 본사 발주 내역 리스트 조회열 -->
+	<sql id="orderColumn">
+		tb_user.store_name , tb_order.order_id, SUBSTR(tb_order.ord_date,1,10) AS ordDate ,cd_status, total_price , order_name
+		, tb_user.user_id
+	</sql>
+	
+
+	<!-- 본사 발주 내역 리스트 조회하기 + 페이징 처리 -->
+	<select id="getOrderData" resultType="HUI_OrderDto" parameterType="HUI_OrderRequestDto">
+		SELECT *
+		FROM (
+			SELECT result1.*, ROWNUM AS rnum
+			FROM (
+				SELECT <include refid="orderColumn"/>
+				FROM tb_order
+				JOIN tb_user
+					ON tb_order.user_id = tb_user.user_id
+				<include refid="orderCondition"/>
+				AND tb_order.cd_status NOT IN ('WAIT')
+				ORDER BY tb_order.ord_date DESC
+			) result1
+		)
+		WHERE rnum BETWEEN #{startRowNum} AND #{endRowNum}
+	</select>
+	
+	<!-- 검색조건에 맞는 총 행의 개수를 구하기 -->
+	<select id="getCount" parameterType="HUI_OrderRequestDto" resultType="int">
+		SELECT COUNT(*)
+		FROM tb_order
+		JOIN tb_user
+			ON tb_order.user_id = tb_user.user_id
+		<include refid="orderCondition"/>
+		AND tb_order.cd_status NOT IN ('WAIT')
+	</select>
+	
+	
+	<!-- 발주 상세 보기 페이지의 기본정보 가지고 오기 + 지점 요청 메세지 가져오기 -->
+	<select id="getOrderInfo" resultType="HUI_OrderDetailDto" parameterType="int">
+		SELECT tb_order.order_id, SUBSTR(tb_order.ord_date,1,10) AS ordDate ,order_name, store_call,  total_price, cd_status,
+		tb_order.memo_request, tb_order.memo_reply,tb_user.user_id
+		FROM tb_order 
+		JOIN tb_user 
+		ON tb_order.user_id = tb_user.user_id
+		WHERE tb_order.order_id = #{orderId} 
+	</select>
+	
+	<!-- 발주 품목에 해당하는 품목 데이터 가지고 오기 + 상품명 검색하기 -->
+	<select id="getOrderDetail" resultType="HUI_OrderDetailDto" parameterType="HUI_OrderDetailDto" >
+		SELECT tb_product.product_id, tb_product.product_name, tb_product.price, tb_order_detail.quantity, 
+		(tb_product.price * tb_order_detail.quantity) AS cost
+		FROM tb_order_detail 
+		JOIN tb_product 
+		ON tb_order_detail.product_id = tb_product.product_id
+		JOIN tb_order 
+		ON tb_order_detail.order_id=tb_order.order_id 
+		WHERE tb_order_detail.order_id = #{orderId}
+		<if test="searchProductName != null and searchProductName !=''">
+			 AND LOWER(tb_product.product_name) LIKE '%' || LOWER(#{searchProductName}) || '%'
+		</if>
+		ORDER BY tb_product.product_name ASC		  
+	</select>
+	
+	<!--메모 저장하기-->
+	<update id="updateReply" parameterType="HUI_OrderDetailDto">
+		UPDATE tb_order 
+		SET memo_reply=#{memoReply} 
+		WHERE tb_order.order_id =#{orderId} 
+	</update>
+	
+	<!-- 승인 처리 -->
+	<update id="updateApp" parameterType="HUI_OrderDetailDto">
+		UPDATE tb_order 
+		SET cd_status= 'APP', edit_date= SYSDATE
+		WHERE tb_order.order_id =#{orderId}
+	</update>	
+	
+	<!-- 반려 처리 -->
+	<update id="updateRej" parameterType="HUI_OrderDetailDto">
+		UPDATE tb_order
+		SET cd_status = 'REJ' , rej_date= SYSDATE, edit_date=SYSDATE
+		WHERE tb_order.order_id =#{orderId}
+	</update>
+	
+	
+</mapper>

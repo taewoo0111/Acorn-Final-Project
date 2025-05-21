@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.FinalProject.mapper.ProductMapper">
+    <!-- 총 행 개수 -->
+    <select id="getProductCount" resultType="int" parameterType="ProductDto">
+	    SELECT COUNT(*)
+	    FROM tb_product
+	    WHERE deleted = 'NO'
+	    <!-- 카테고리 필터-->
+	    <if test="cdCategory != null and cdCategory != '' and cdCategory != 'all'">
+	        AND cd_category = #{cdCategory}
+	    </if>
+	    <!-- 키워드 필터 -->
+	    <if test="keyword != null and keyword != ''">
+	        AND product_name LIKE '%' || #{keyword} || '%'
+	    </if>
+	</select>
+
+    <!-- product list -->
+    <select id="getProductList" resultType="ProductDto" parameterType="ProductDto">
+	    SELECT product_id, product_name, cdCategory, price
+	    FROM (
+	        SELECT result1.*, ROWNUM rnum
+	        FROM (
+	            SELECT product_id, product_name, cd_category AS cdCategory, price
+	            FROM tb_product
+	            WHERE deleted = 'NO'
+	            <!-- 카테고리 필터 (전체 제외) -->
+	            <if test="cdCategory != null and cdCategory != '' and cdCategory != 'all'">
+	                AND cd_category = #{cdCategory}
+	            </if>
+	            <!-- 키워드 필터 (품목명 검색) -->
+	            <if test="keyword != null and keyword != ''">
+	                AND product_name LIKE '%' || #{keyword} || '%'
+	            </if>
+	            ORDER BY product_id DESC
+	        ) result1
+	    )
+	    WHERE rnum BETWEEN #{startRowNum} AND #{endRowNum}
+	</select>
+
+    <!-- product 보기  -->
+    <select id="getData" resultType="ProductDto" parameterType="int">
+        SELECT product_id, product_name, cd_category AS cdCategory, price
+        FROM tb_product
+        WHERE product_id = #{productId}
+        AND deleted = 'NO'
+    </select>
+
+    <!-- product 등록 -->
+    <insert id="insertProduct" parameterType="ProductDto">
+        INSERT INTO tb_product (product_id, product_name, cd_category, price)
+        VALUES (seq_product_id.NEXTVAL, #{productName}, #{cdCategory}, #{price})
+    </insert>
+
+    <!--product 수정 (가격만 변경) -->
+    <update id="updateProduct" parameterType="ProductDto">
+        UPDATE tb_product
+        SET price = #{price}
+        WHERE product_id = #{productId}
+    </update>
+
+    <!-- product 삭제 (실제 삭제 아님, deleted 상태 변경) -->
+    <update id="hideProduct" parameterType="int">
+        UPDATE tb_product
+        SET deleted = 'YES'
+        WHERE product_id = #{productId}
+    </update>
+
+</mapper>

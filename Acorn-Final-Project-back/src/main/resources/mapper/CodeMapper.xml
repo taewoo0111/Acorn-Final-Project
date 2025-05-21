@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.FinalProject.mapper.CodeMapper">
+	<!-- acode list -->
+	<select id="getAcodeList" resultType="CodeDto">
+		select acode, aname 
+		from tb_acode
+		where deleted = 'NO'
+	</select>
+	<!-- acode 등록 -->
+	<insert id="insertAcode" parameterType="CodeDto">
+		INSERT INTO TB_ACODE(
+		ACODE, ANAME)
+		values(#{acode},#{aname})
+	</insert>
+	<!-- acode 숨기기 -->
+	<update id="hideAcode" parameterType="String">
+		UPDATE tb_acode
+		SET deleted = 'YES'
+		WHERE acode = #{acode}
+	</update>
+	<!-- bcode list -->
+	<select id="getBcodeList" parameterType="CodeDto" resultType="CodeDto">
+		select b.bcode, b.bname, a.acode, a.aname
+		from tb_bcode b
+		JOIN TB_ACODE a ON b.ACODE = a.ACODE
+		WHERE a.acode=#{acode} AND b.deleted = 'NO'
+	</select>
+	<!-- bcode 등록 -->
+	<insert id="insertBcode" parameterType="CodeDto">
+		INSERT INTO TB_BCODE(
+		acode, bcode, bname) 
+		VALUES (#{acode}, #{bcode}, #{bname})
+	</insert>
+	<!-- bcode 숨기기 -->
+	<update id="hideBcode" parameterType="String">
+		UPDATE TB_BCODE
+		SET DELETED ='YES'
+		WHERE BCODE = #{bcode}
+	</update>
+</mapper>

@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.FinalProject.mapper.CeoSaleMapper">
+	
+	<insert id="insertEtcProfit" parameterType="TWCeoSaleDto">
+        insert into TB_CEO_SALE
+        (CEO_SALE_ID, USER_ID, CRE_DATE, EDIT_DATE, SALE_NAME, PRICE, CD_ACODE, CD_BCODE, AUTO)
+        values(SEQ_CEO_SALE_ID.nextval, #{userId}, sysdate, sysdate, #{saleName}, #{price}, 'PROFIT', 'ETC', 'YES')
+    </insert>
+
+    <insert id="insertEtcProfitSelf" parameterType="TWCeoSaleDto">
+        insert into TB_CEO_SALE
+        (CEO_SALE_ID, USER_ID, CRE_DATE, EDIT_DATE, SALE_NAME, PRICE, CD_ACODE, CD_BCODE, AUTO)
+        values(SEQ_CEO_SALE_ID.nextval, #{userId}, sysdate, sysdate, #{saleName}, #{price}, 'PROFIT', 'ETC', 'NO')
+    </insert>
+
+    <select id="getList" parameterType="TWCeoSalePageDto" resultType="TWCeoSaleDto">
+		select *
+        from
+            (select result1.*, rowNum as rnum
+                from
+                    (select * from TB_CEO_SALE
+                              order by CRE_DATE desc) result1)
+            where rnum between #{startRowNum} and #{endRowNum}
+    </select>
+
+    <update id="update" parameterType="TWCeoSaleDto">
+        update TB_CEO_SALE
+        set SALE_NAME = #{saleName},
+            PRICE = #{price},
+            EDIT_DATE = sysdate,
+            CD_ACODE = #{cdAcode},
+            CD_BCODE = #{cdBcode},
+            AUTO = 'NO'
+        where CEO_SALE_ID = #{ceoSaleId}
+    </update>
+    
+    <select id="getTotalRow" resultType="int">
+    	select count(*) from tb_ceo_sale
+    </select>
+    
+    <select id="getListGraph" parameterType="int" resultType="map">
+    	select
+    		TO_CHAR(cre_date, 'MM') as month,
+    		SUM(price) as total_price
+    	from tb_ceo_sale
+    	where TO_CHAR(cre_date, 'YYYY') = #{year}
+    	group by TO_CHAR(cre_date, 'MM')
+    	order by month
+    </select>
+    
+    <select id="getAvailableYears" resultType="int">
+    	SELECT DISTINCT TO_CHAR(cre_date, 'YYYY') AS year
+		FROM tb_ceo_sale
+		ORDER BY TO_CHAR(cre_date, 'YYYY') DESC
+    </select>
+    
+    
+    <select id="getListAdminSale" parameterType="map" resultType="map">
+    	select 
+    		TO_CHAR(cre_date, 'MM') as month,
+    		NVL(SUM(CASE WHEN cd_acode = 'PROFIT' THEN price ELSE 0 END), 0) -
+        	NVL(SUM(CASE WHEN cd_acode = 'COST' THEN price ELSE 0 END), 0) AS total_price
+    	from tb_admin_sale
+    	where TO_CHAR(cre_date, 'YYYY') = #{year}
+    		and user_id = #{userId}
+    	group by TO_CHAR(cre_date, 'MM')
+    	order by month
+    </select>
+    
+    <select id="getViewAvailableYears" parameterType="int" resultType="int">
+    	select distinct TO_CHAR(cre_date, 'YYYY') as year
+    	from tb_admin_sale
+    	where user_id = #{userId}
+    	order by TO_CHAR(cre_date, 'YYYY') desc
+    </select>
+    
+    <select id="getUserList" resultType="map">
+    	SELECT user_id, store_name
+    	FROM tb_user
+    	WHERE cd_role = 'ADMIN'
+	</select>
+    
+</mapper>

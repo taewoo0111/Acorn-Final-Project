@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.FinalProject.mapper.StudentMapper">
+	<!-- 학생 정보 등록 -->
+	<insert id="insert" parameterType="StudentDto">	
+		INSERT INTO tb_student
+		(student_id, name, user_id, phone, cd_status)
+		VALUES(seq_student_id.NEXTVAL, #{name}, #{userId}, #{phone}, #{cdStatus})		
+	</insert>	
+	
+	<!-- 학생 정보 수정 -->
+	<update id="update" parameterType="StudentDto">
+		UPDATE tb_student
+		SET name=#{name}, phone=#{phone}, cd_status=#{cdStatus}
+		WHERE student_id=#{studentId}
+	</update>	
+
+	<!-- 특정 학생(재원생, 퇴원생 모두 포함)의 전체 수강 이력 가져오기 -->
+	<select id="getClassHistory" parameterType="int" resultType="StudentClassHistoryDto">
+	  SELECT 
+	    s.student_id,
+	    s.name,
+	    c.class_id,
+	    c.class_name,
+	    c.teacher_id,
+	    t.name AS teacherName,
+		TO_CHAR(c.start_date, 'YYYY-MM-DD') AS start_date,
+	  	TO_CHAR(c.end_date, 'YYYY-MM-DD') AS end_date,
+	    c.start_time,
+	    c.end_time,
+	    c.weekday
+	  FROM tb_student s
+	  LEFT JOIN tb_student_class sc ON s.student_id = sc.student_id
+	  LEFT JOIN tb_class c ON sc.class_id = c.class_id AND c.cd_status IN ('START','END') <!-- 진행중, 종강 -->
+	  LEFT JOIN tb_teacher t ON c.teacher_id = t.teacher_id
+	  WHERE 
+	  	s.student_id = #{studentId}
+	  	
+	  ORDER BY c.end_date, c.end_time DESC
+	</select>
+	<!-- LEFT JOIN 하게 되면 sc.classid 가 NULL 인 경우 classname 은 NULL -->
+
+	<!-- 페이징, 검색 조건 반영한 전체 학생 목록 가져오기 -->
+	<select id="getResult" parameterType="StudentSearchPageDto" resultType="StudentDto">
+		SELECT *
+		FROM 
+			(SELECT result1.*, ROWNUM AS rnum 
+			FROM 
+				(SELECT 
+				    s.student_id,
+				    s.name,
+				    s.phone,
+				    s.user_id,
+				    u.store_name,
+				    s.cd_status,
+				    b.bname AS statusName,
+				    LISTAGG(c.class_name, ', ') WITHIN GROUP (ORDER BY c.class_name) AS classNames
+				FROM tb_student s
+				LEFT JOIN tb_student_class sc ON s.student_id = sc.student_id 
+				LEFT JOIN tb_class c ON sc.class_id = c.class_id AND c.cd_status IN ('READY', 'START')
+				LEFT JOIN tb_bcode b ON s.cd_status = b.bcode AND b.acode = 'STUDENT' <!-- 학생 상태 관리 코드 -->
+				LEFT JOIN tb_user u ON s.user_id = u.user_id
+				WHERE 
+				    s.user_id = #{search.userId}
+				<choose>
+					<when test="search.state == 'STUDY'">
+						AND s.cd_status = 'STUDY'
+					</when>
+					<when test="search.state == 'S_QUIT'">
+						AND s.cd_status = 'S_QUIT'
+					</when>
+					<when test="search.state == 'WHOLE'">
+
+					</when>
+				</choose>
+				<choose>
+					<when test="search.condition == 'STUDENT'">
+						AND LOWER(s.name) LIKE '%' || LOWER(#{search.keyword}) || '%'
+					</when>
+					<when test="search.condition == 'CLASS'">
+						AND LOWER(c.class_name) LIKE '%' || LOWER(#{search.keyword}) || '%'
+					</when>
+				</choose>
+				GROUP BY s.student_id, s.name, s.phone, s.user_id, u.store_name, s.cd_status, b.bname
+				ORDER BY s.name ASC) result1)
+		WHERE rnum BETWEEN #{page.startRowNum} AND #{page.endRowNum}
+	</select>
+	
+	<!-- 조건에 맞는 학생 수 count -->
+	<select id="getCount" parameterType="StudentSearchPageDto" resultType="int">
+		SELECT COUNT(DISTINCT s.student_id)
+		FROM tb_student s
+			LEFT JOIN tb_student_class sc ON s.student_id = sc.student_id 
+			LEFT JOIN tb_class c ON sc.class_id = c.class_id
+			WHERE				 
+				s.user_id = #{search.userId}					
+			<choose>
+				<when test="search.state == 'STUDY'">
+					AND s.cd_status = 'STUDY'
+				</when>
+				<when test="search.state == 'S_QUIT'">
+					AND s.cd_status = 'S_QUIT'
+				</when>
+				<when test="search.state == 'WHOLE'">
+
+				</when>
+			</choose>
+			<choose>
+				<when test="search.condition == 'STUDENT'">
+					AND LOWER(s.name) LIKE '%' || LOWER(#{search.keyword}) || '%'
+				</when>
+				<when test="search.condition == 'CLASS'">
+					AND LOWER(c.class_name) LIKE '%' || LOWER(#{search.keyword}) || '%'
+				</when>
+			</choose>
+	</select>
+	
+	<select id="getPhoneCount" resultType="int">
+		SELECT COUNT(*) 
+		FROM tb_student 
+		WHERE phone = #{phone}
+	</select>
+</mapper>

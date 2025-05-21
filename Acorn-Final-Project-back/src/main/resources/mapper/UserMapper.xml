@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="user">
+	<sql id="columnName">
+		num, userName, password, email, profileImage, role, updatedAt, createdAt
+	</sql>
+	
+	<update id="update" parameterType="userDto">
+		UPDATE 	USERS
+		SET email=#{email}, updatedAt=SYSDATE
+		<if test="profileImage != null">, profileImage=#{profileImage}</if>
+		WHERE userName=#{userName}
+	</update>
+	
+	<update id="updatePassword" parameterType="userDto">
+		UPDATE users
+		SET password=#{newPassword}
+		WHERE userName=#{userName}
+	</update>
+	
+	<insert id="insert" parameterType="userDto">
+		INSERT INTO users
+		(num, userName, password, email)
+		VALUES(users_seq.NEXTVAL, #{userName}, #{password}, #{email})
+	</insert>
+	
+	<select id="getByNum" parameterType="long" resultType="userDto">
+		SELECT <include refid="columnName" />
+		FROM users
+		WHERE num=#{num}
+	</select>
+	
+	<select id="getByUserName" parameterType="String" resultType="userDto">
+		SELECT <include refid="columnName" />
+		FROM users
+		WHERE userName=#{userName}
+	</select>
+</mapper>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.FinalProject.mapper.LoginMapper">
+
+	<!-- 로그인 -->
+	<select id="login"
+		parameterType="com.example.FinalProject.dto.LoginDto"
+		resultType="com.example.FinalProject.dto.LoginDto">
+			
+		SELECT id, pwd, user_id, user_name, store_name, cd_role
+			FROM tb_user
+			where id = #{id} and pwd = #{pw}
+	</select>
+</mapper>

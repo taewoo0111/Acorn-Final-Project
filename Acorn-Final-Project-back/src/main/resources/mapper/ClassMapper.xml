@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.FinalProject.mapper.ClassMapper">
+
+	<!-- 수업 상태값 수정 -->
+	<update id="updateClassStatus" parameterType="com.example.FinalProject.dto.HjClassDto">
+		UPDATE tb_class SET
+		start_date = TO_DATE(#{startDate}, 'YYYY-MM-DD'), end_date = TO_DATE(#{endDate}, 'YYYY-MM-DD'), 
+		apply_start_date = TO_DATE(#{applyStartDate}, 'YYYY-MM-DD'), apply_end_date = TO_DATE(#{applyEndDate}, 'YYYY-MM-DD'), 
+		max_student = #{maxStudent},
+		cd_status = #{cdStatus} 
+		WHERE class_id = #{classId}
+	</update>
+
+	<!-- 수업수정 -->
+	<update id="updateClass" parameterType="com.example.FinalProject.dto.HjClassDto">
+		UPDATE tb_class SET 
+		cd_lecture = #{cdLecture}, class_name = #{className}, 
+		start_date = TO_DATE(#{startDate}, 'YYYY-MM-DD'), end_date = TO_DATE(#{endDate}, 'YYYY-MM-DD'), 
+		start_time = #{startTime}, end_time = #{endTime}, weekday = #{weekday}, teacher_id = #{teacherId}, 
+		apply_start_date = TO_DATE(#{applyStartDate}, 'YYYY-MM-DD'), apply_end_date = TO_DATE(#{applyEndDate}, 'YYYY-MM-DD'), 
+		max_student = #{maxStudent}, price = #{price}, description = #{description} 
+		WHERE class_id = #{classId}
+	</update>
+
+	<!-- 수업개설 -->
+	<insert id="addClass" parameterType="com.example.FinalProject.dto.HjClassDto">
+		INSERT INTO tb_class 
+		(class_id, class_name, cd_lecture, user_id,description, teacher_id, apply_start_date, apply_end_date, start_date, end_date, start_time, end_time, max_student, cd_status, weekday, price)
+		VALUES 
+		(seq_class_id.NEXTVAL, #{className}, #{cdLecture}, #{userId}, #{description}, #{teacherId}, TO_DATE(#{applyStartDate}, 'YYYY-MM-DD'), TO_DATE(#{applyEndDate}, 'YYYY-MM-DD'), TO_DATE(#{startDate}, 'YYYY-MM-DD'), TO_DATE(#{endDate}, 'YYYY-MM-DD'), #{startTime}, #{endTime}, #{maxStudent}, 'BEFORE', #{weekday}, #{price})
+	</insert>
+
+	<!-- 수업설명 불러오기 -->
+	<select id="getClassDescription" resultType="com.example.FinalProject.dto.HjClassDto" parameterType="int">
+		SELECT CLASS_ID, CLASS_NAME, description FROM tb_class WHERE class_id = #{classId}
+	</select>
+	
+	<!-- 수업상세 불러오기 -->
+	<select id="getClassdetail" resultType="com.example.FinalProject.dto.HjClassDto" parameterType="int">
+		SELECT 
+	        c.class_id,
+	        c.user_id,
+	        c.class_name,
+	        cd_lecture,
+	        t.name AS teacher_name,
+	        t.teacher_id AS teacher_id,
+	        TO_CHAR(c.start_date, 'YYYY-MM-DD') AS start_date,
+	        TO_CHAR(c.end_date, 'YYYY-MM-DD') AS end_date,
+	        c.start_time,
+	        c.end_time,
+	        c.weekday,
+	        NVL(COUNT(sc.student_id), 0) AS current_student, 
+	        c.max_student,
+	        c.price,
+	        TO_CHAR(c.apply_start_date, 'YYYY-MM-DD') AS apply_start_date,
+	        TO_CHAR(c.apply_end_date, 'YYYY-MM-DD') AS apply_end_date,
+	        c.cd_status		
+		FROM tb_class c
+		JOIN tb_teacher t ON c.teacher_id = t.teacher_id
+		LEFT JOIN tb_student_class sc ON c.class_id = sc.class_id 
+		WHERE c.class_id = #{classId}
+		GROUP BY 
+			c.class_id,
+			c.user_id,
+			c.class_name,
+			cd_lecture,
+			t.name,
+			t.teacher_id,
+			c.start_date,
+			c.end_date,
+			c.start_time,
+			c.end_time,
+			c.weekday,
+			c.max_student,
+			c.price,
+			c.apply_start_date,
+			c.apply_end_date,
+			c.cd_status 
+	</select>
+
+	<!-- 해당지점에서 개설한 수업리스트 -->
+	<select id="getClassByStore" resultType="com.example.FinalProject.dto.HjClassDto" parameterType="com.example.FinalProject.dto.HjClassListDto">
+	    SELECT *
+	    FROM (
+	        SELECT result1.*, ROWNUM AS rnum
+	        FROM (
+	            SELECT 
+	                c.class_id,
+	                c.class_name,
+	                bl.bname AS cd_lecture,
+	                t.name AS teacher_name,
+	                TO_CHAR(c.start_date, 'YYYY-MM-DD') AS start_date,
+	                TO_CHAR(c.end_date, 'YYYY-MM-DD') AS end_date,
+	                c.start_time,
+	                c.end_time,
+	                c.weekday,
+	                COUNT(sc.student_id) AS current_student, 
+	                c.max_student,
+	                c.price,
+	                TO_CHAR(c.apply_start_date, 'YYYY-MM-DD') AS apply_start_date,
+	                TO_CHAR(c.apply_end_date, 'YYYY-MM-DD') AS apply_end_date,
+	                bs.bname AS cd_status
+	            FROM tb_class c
+	            JOIN tb_teacher t ON c.teacher_id = t.teacher_id 
+	            LEFT JOIN tb_student_class sc ON c.class_id = sc.class_id 
+	            LEFT JOIN TB_BCODE bl ON bl.bcode=c.cd_lecture
+            	LEFT JOIN TB_BCODE bs ON bs.bcode=c.cd_status
+	            WHERE c.user_id = #{userId}
+	            <if test="cdStatus != null">
+	                AND c.cd_status = #{cdStatus}
+	            </if>
+	            <if test="condition != null and condition == 'teacherName'">
+	                AND LOWER(t.name) LIKE '%' || LOWER(#{keyword}) || '%'
+	            </if>
+	            <if test="condition != null and condition == 'className'">
+	                AND LOWER(c.class_name) LIKE '%' || LOWER(#{keyword}) || '%'
+	            </if>
+				GROUP BY 
+					c.class_id,
+					c.class_name,
+					bl.bname,
+					t.name,
+					c.start_date,
+					c.end_date,
+					c.start_time,
+					c.end_time,
+					c.weekday,
+					c.max_student,
+					c.price,
+					c.apply_start_date,
+					c.apply_end_date,
+					bs.bname
+	            ORDER BY c.class_id DESC
+	        ) result1
+	    )
+	    WHERE rnum BETWEEN #{startRowNum} AND #{endRowNum}
+	</select>
+	
+	<!-- 조건에 맞는 수업 수 count -->
+	<select id="getCount" parameterType="com.example.FinalProject.dto.HjClassListDto" resultType="int">
+		SELECT COUNT(*)
+		FROM tb_class c
+		JOIN tb_teacher t ON c.teacher_id = t.teacher_id 
+        WHERE c.user_id = #{userId}
+        <if test="cdStatus != null">
+            AND c.cd_status = #{cdStatus}
+        </if>
+        <if test="condition != null and condition == 'teacherName'">
+            AND LOWER(t.name) LIKE '%' || LOWER(#{keyword}) || '%'
+        </if>
+        <if test="condition != null and condition == 'className'">
+            AND LOWER(c.class_name) LIKE '%' || LOWER(#{keyword}) || '%'
+        </if>
+	</select>	
+	
+	<!-- 개설가능한 강의분류 불러오기 -->
+	<select id="getClassLecture" resultType="com.example.FinalProject.dto.HjLectureDto">
+		select * FROM tb_bcode WHERE ACODE = 'LECTURE'
+	</select>	
+	
+   
+   <!-- 해당지점에서 개설한 수업리스트(페이징, 검색 조건 없이) -->
+   <select id="getClassList" parameterType="int" resultType="com.example.FinalProject.dto.HjClassDto">
+            SELECT 
+                   c.class_id,
+                   c.class_name,
+                   c.cd_lecture,
+                   t.name AS teacher_name,
+                   TO_CHAR(c.start_date, 'YYYY-MM-DD') AS start_date,
+                   TO_CHAR(c.end_date, 'YYYY-MM-DD') AS end_date,
+                   c.start_time,
+                   c.end_time,
+                   c.weekday,
+                   c.max_student,
+                   c.price,
+                   TO_CHAR(c.apply_start_date, 'YYYY-MM-DD') AS apply_start_date,
+                   TO_CHAR(c.apply_end_date, 'YYYY-MM-DD') AS apply_end_date,
+                   bs.bname AS cd_status
+               FROM tb_class c
+               JOIN tb_teacher t ON c.teacher_id = t.teacher_id 
+              
+               LEFT JOIN TB_BCODE bs ON bs.bcode=c.cd_status
+               WHERE c.user_id = #{userId} AND c.cd_status IN ('BEFORE', 'READY', 'START', 'END')
+
+               
+               ORDER BY c.class_id ASC
+   </select>
+   
+	
+<!-- 학생의 다른 수업 시간 조회 -->
+<select id="getStudentSchedules" resultType="ConflictClassDto">
+    SELECT
+        sc.class_id AS class_id,
+        c.class_name AS class_name,
+        TO_CHAR(c.start_date, 'YYYY-MM-DD') AS start_date,
+	    TO_CHAR(c.end_date, 'YYYY-MM-DD') AS end_date,
+        c.start_time AS start_time,
+        c.end_time AS end_time,
+        c.weekday
+    FROM tb_student_class sc
+    JOIN tb_class c ON sc.class_id = c.class_id
+    WHERE sc.student_id = #{studentId}
+     AND c.cd_status IN ('BEFORE', 'READY', 'START')
+    AND sc.class_id != #{classId}
+</select>
+
+<insert id="insertStudentClass" parameterType="map">
+  INSERT ALL
+  <foreach collection="studentIds" item="studentId">
+    INTO tb_student_class (student_id, class_id) VALUES (#{studentId}, #{classId})
+  </foreach>
+  SELECT * FROM dual
+</insert>
+
+  <delete id="deleteStudentClass" parameterType="map">
+    DELETE FROM tb_student_class
+    WHERE student_id = #{studentId}
+	  AND class_id = #{classId}
+  </delete>
+  
+  <!-- 해당 수업 수강생 정보 리스트 가져오기 --> 
+  <select id="getClassStudentList" parameterType="int" resultType="StudentDto">
+  	SELECT 
+  		s.student_id,
+  		s.name,
+  		s.phone
+  	FROM tb_student_class sc
+  	LEFT JOIN tb_student s ON s.student_id = sc.student_id
+  	WHERE sc.class_id = #{classId}
+  	 AND s.cd_status = 'STUDY'
+	ORDER BY s.student_id ASC
+  </select>
+  
+  <!-- 해당 지점 모든 학생 정보 리스트 가져오기 --> 
+  <select id="getAllStudentList" parameterType="int" resultType="StudentDto">
+	SELECT 
+		s.student_id, 
+		s.name, 
+		s.phone
+	FROM tb_student s
+	WHERE s.user_id = #{userId}
+	  AND s.cd_status = 'STUDY'
+	ORDER BY s.student_id ASC
+  </select>
+</mapper>

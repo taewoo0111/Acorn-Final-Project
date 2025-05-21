@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.FinalProject.mapper.AdminOrderMapper">
+	
+	
+	<!--  -->
+	<select id="getStoreCall" parameterType="int" resultType="string">
+		SELECT STORE_CALL FROM TB_USER WHERE USER_ID = #{userId}
+	</select>
+	
+	<!-- 발주 현황 리스트 조회 -->
+	<select id="getOrd"
+		parameterType="com.example.FinalProject.dto.EuOrderListDto"
+		resultType="com.example.FinalProject.dto.EuOrderDto">
+		SELECT *
+			FROM (SELECT TOTAL_LIST.*, ROWNUM AS RNUM
+			   FROM 
+			      (SELECT ORDER_ID, ORD_DATE, ORDER_NAME, TOTAL_PRICE, CD_STATUS
+			      FROM TB_ORDER
+			      	<where>
+			      		ORD_DATE BETWEEN TO_DATE(#{strDate} || ' 00:00:00', 'YYYY-MM-DD HH24:MI:SS') 
+			      		AND TO_DATE(#{endDate} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+			      		<if test="status!='ALL'">
+			      			AND CD_STATUS = #{status}
+			      		</if>
+			      	</where>
+			      ORDER BY ORD_DATE DESC) TOTAL_LIST)
+			WHERE RNUM BETWEEN #{startRowNum} AND #{endRowNum}
+	</select>
+	
+	<!-- 발주 현황 리스트 개수  -->
+	<select id="getOrdCnt"
+		resultType="int"
+		parameterType="com.example.FinalProject.dto.EuOrderListDto">
+		SELECT COUNT(*)
+		FROM TB_ORDER 
+			<where>
+				ORD_DATE BETWEEN TO_DATE(#{strDate} || ' 00:00:00', 'YYYY-MM-DD HH24:MI:SS') 
+				AND TO_DATE(#{endDate} || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+	      		<if test="status!='ALL'">
+	      			AND CD_STATUS = #{status}
+	      		</if>
+	      	</where>
+	</select>
+	
+	<!-- 특정 발주서 정보 -->
+	<select id="getOrdInfo" parameterType="int">
+		SELECT ORDER_ID, 
+			ORDER_NAME, 
+			ORD_DATE, 
+			TOTAL_PRICE, 
+			STORE_NAME, 
+			STORE_CALL, 
+			MEMO_REQUEST, 
+			MEMO_REPLY, 
+			CD_STATUS 
+		FROM TB_ORDER o
+		JOIN TB_USER u ON o.USER_ID = u.USER_ID 
+		WHERE ORDER_ID = #{ordId}
+	</select>
+	
+	<!-- 특정 발주서의 품목 정보 -->
+	<select id="getOrdItem" parameterType="int">
+		SELECT PRODUCT_NAME, QUANTITY , OD.PRICE, OD.PRODUCT_ID
+		FROM TB_ORDER_DETAIL OD
+		JOIN TB_PRODUCT P ON P.PRODUCT_ID = OD.PRODUCT_ID
+		WHERE ORDER_ID = #{ordId}
+	</select>
+	
+	<!-- 주문 가능 품목 리스트 조회 -->
+	<select id="getProduct"
+		parameterType="com.example.FinalProject.dto.EuProdcutListDto"
+		resultType="com.example.FinalProject.dto.EuProductDto">
+		SELECT PRODUCT_ID, CD_CATEGORY, PRODUCT_NAME, PRICE 
+		FROM TB_PRODUCT
+		<where>
+			DELETED = 'NO'
+			<if test="condition =='ctg'">
+				AND LOWER(CD_CATEGORY) LIKE '%' ||  LOWER(#{keyword}) || '%'
+			</if>
+			<if test="condition =='pname'">
+				AND LOWER(PRODUCT_NAME) LIKE '%' || LOWER(#{keyword}) || '%'
+			</if>
+			<if test="condition =='pid'">
+				AND PRODUCT_ID = #{keyId}
+			</if>
+		</where>
+		ORDER BY PRODUCT_NAME ASC
+	</select>
+	
+	<!-- 리스트에서 특정 품목을 발주서에 추가할 정보 가져오기 -->
+	<select id="getProductOne"
+		parameterType="int"
+		resultType="com.example.FinalProject.dto.EuProductDto">
+		SELECT PRODUCT_ID, PRODUCT_NAME, PRICE 
+		FROM TB_PRODUCT
+		WHERE PRODUCT_ID = #{pId}
+	</select>
+	
+	
+	<!-- 새 발주서 추가 (0) 발주 정보 추가 -->
+	<select id="getOrdSeq" resultType="int">
+		SELECT SEQ_ORDER_ID.NEXTVAL FROM DUAL
+	</select>
+	
+	<!-- 새 발주서 추가 (1) 발주 정보 추가 -->
+	<insert id="addOrdInfo"
+		parameterType="com.example.FinalProject.dto.EuOrderDto">
+		INSERT INTO TB_ORDER 
+		(ORDER_ID, ORDER_NAME, USER_ID , CRE_DATE , EDIT_DATE, ORD_DATE, CD_STATUS , MEMO_REQUEST, TOTAL_PRICE)
+		VALUES (#{orderId}, #{orderName}, #{userId}, SYSDATE, SYSDATE, SYSDATE, 
+		<choose>
+			<when test="tmp">
+				'WAIT'
+			</when>
+			<otherwise>
+				'PEN'
+			</otherwise>
+		</choose>
+		, #{memoRequest}, #{totalPrice})
+	</insert>
+	
+	<!-- 새 발주서 추가 (2) 발주 아이템 추가 *품목 개수 만큼 반복 실행-->
+	<insert id="addOrdItem"
+		parameterType="com.example.FinalProject.dto.EuOrderItemDto">
+		INSERT INTO TB_ORDER_DETAIL
+		(ORDER_DETAIL_ID, ORDER_ID, PRODUCT_ID, QUANTITY, PRICE)
+		VALUES (SEQ_ORDER_DETAIL_ID.NEXTVAL, #{orderId}, #{productId}, #{quantity}, #{price})
+	</insert>
+	
+	<!-- 기존 발주서 수정 (1) 발주서 정보 수정 - 근데 임시 저장을 발주상태로 변경 -->
+	<update id="editToOrdInfo"
+		parameterType="com.example.FinalProject.dto.EuOrderDto">
+		UPDATE TB_ORDER
+		SET EDIT_DATE = SYSDATE, 
+			ORD_DATE = SYSDATE, 
+			CD_STATUS = 'PEN', 
+			MEMO_REQUEST = #{memoRequest, jdbcType=VARCHAR}, 
+			TOTAL_PRICE = #{totalPrice},
+			ORDER_NAME = #{orderName}
+		WHERE ORDER_ID = #{orderId}
+	</update>
+	
+	<!-- 기존 발주서 수정 (1) 발주서 정보 수정 -->
+	<update id="editOrdInfo"
+		parameterType="com.example.FinalProject.dto.EuOrderDto">
+		UPDATE TB_ORDER
+		SET EDIT_DATE = SYSDATE, 
+			ORD_DATE = SYSDATE, 
+			CD_STATUS = #{cdStatus}, 
+			MEMO_REQUEST = #{memoRequest, jdbcType=VARCHAR}, 
+			TOTAL_PRICE = #{totalPrice},
+			ORDER_NAME = #{orderName}
+		WHERE ORDER_ID = #{orderId}
+	</update>
+	
+	<!-- 기존 발주서 수정 (2) 발주 품목 다 지우기 -->
+	<delete id="deleteOrdItem" parameterType="int">
+		DELETE FROM TB_ORDER_DETAIL 
+		WHERE ORDER_ID = #{orderId}
+	</delete>
+	
+	<!-- 기존 발주서 수정 (3) 발주서의 품목 정보 추가 -->
+	<!-- 위에 작성한 addOrdItem 메소드를 사용합니다. -->
+	
+	<!-- 임시저장된 발주서가 있는지 확인 -->
+	<select id="getTmpOrdId" resultType="int">
+		SELECT ORDER_ID FROM TB_ORDER 
+		WHERE CD_STATUS = 'WAIT'
+	</select>
+	
+	<!-- 발주서 삭제 -->
+	<delete id="deleteOrdP" parameterType="int">
+		DELETE FROM TB_ORDER
+		WHERE ORDER_ID = #{pId}
+	</delete>
+	
+	<delete id="deleteOrdC" parameterType="int">
+		DELETE FROM TB_ORDER_DETAIL
+		WHERE ORDER_ID = #{pId}
+	</delete>
+	
+</mapper>

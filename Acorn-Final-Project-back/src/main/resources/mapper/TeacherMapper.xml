@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.FinalProject.mapper.TeacherMapper"> 
+	<!-- 강사 정보 등록 -->
+	<insert id="insert" parameterType="TeacherDto">
+		INSERT INTO tb_teacher
+		(teacher_id, name, phone, user_id, salary, cd_status, birth)
+		VALUES(seq_teacher_id.NEXTVAL, #{name}, #{phone}, #{userId}, TO_NUMBER(#{salary}), #{cdStatus}, TO_DATE(#{birth}, 'YYYY-MM-DD'))
+	</insert>	
+	
+	<!-- 강사 정보 수정 -->
+	<update id="update" parameterType="TeacherDto">
+		UPDATE tb_teacher
+		SET name=#{name}, phone=#{phone}, salary=TO_NUMBER(#{salary}), cd_status=#{cdStatus}, birth=TO_DATE(#{birth}, 'YYYY-MM-DD')
+		WHERE teacher_id=#{teacherId}
+	</update>
+
+	<!-- 특정 강사(재직자, 퇴직자 모두 포함)의 전체 수업 이력 가져오기 -->
+	<select id="getClassHistory" parameterType="int" resultType="TeacherClassHistoryDto">
+	  SELECT 
+	    t.teacher_id,
+	    t.name,
+	    c.class_id,
+	    c.class_name,
+		TO_CHAR(c.start_date, 'YYYY-MM-DD') AS startDate,
+	  	TO_CHAR(c.end_date, 'YYYY-MM-DD') AS endDate,
+	    c.start_time,
+	    c.end_time,
+	   	c.max_student,
+	   	c.weekday,
+	   	COUNT(sc.student_id) AS currentStudent
+	  FROM tb_teacher t
+	  LEFT JOIN tb_class c ON t.teacher_id = c.teacher_id AND c.cd_status IN ('START','END') <!-- 진행중, 종강 -->
+	  LEFT JOIN tb_student_class sc ON sc.class_id = c.class_id
+	  WHERE 
+	  	t.teacher_id = #{teacherId}
+	  	
+	  GROUP BY t.teacher_id, t.name, c.class_id, c.class_name, c.start_date, c.end_date, c.start_time, c.end_time, c.max_student, c.weekday
+		
+	  ORDER BY c.end_date, c.end_time DESC
+	</select>
+	<!-- LEFT JOIN 하게 되면 sc.classid 가 NULL 인 경우 classname 은 NULL -->
+
+	<!-- 페이징, 검색 조건 반영한 전체 강사 목록 가져오기 -->
+	<select id="getResult" parameterType="TeacherSearchPageDto" resultType="TeacherDto">
+		SELECT *
+		FROM 
+			(SELECT result1.*, ROWNUM AS rnum 
+			FROM
+				(SELECT 
+				    t.teacher_id,
+				    t.name,
+				    TO_CHAR(t.birth, 'YYYY-MM-DD') AS birth,
+				    t.phone,
+				    TO_NUMBER(t.salary) AS salary,
+				    t.user_id,
+				    u.store_name,
+				    t.cd_status,
+				    b.bname AS statusName,
+				    LISTAGG(c.class_name, ', ') WITHIN GROUP (ORDER BY c.class_name) AS classNames
+				FROM tb_teacher t
+				LEFT JOIN tb_class c ON t.teacher_id = c.teacher_id AND c.cd_status IN ('READY', 'START') <!-- 모집마감, 진행중 -->
+				LEFT JOIN tb_bcode b ON t.cd_status = b.bcode AND b.acode = 'TEACHER' <!-- 강사 상태 관리 코드 -->
+				LEFT JOIN tb_user u ON t.user_id = u.user_id
+				WHERE 
+				    t.user_id = #{search.userId}
+				<choose>
+					<when test="search.state == 'WORK'">
+						AND t.cd_status = 'WORK'
+					</when>
+					<when test="search.state == 'T_QUIT'">
+						AND t.cd_status = 'T_QUIT'
+					</when>
+					<when test="search.state == 'WHOLE'">
+
+					</when>
+				</choose>
+				<choose>
+					<when test="search.condition == 'TEACHER'">
+						AND LOWER(t.name) LIKE '%' || LOWER(#{search.keyword}) || '%'
+					</when>
+					<when test="search.condition == 'CLASS'">
+						AND LOWER(c.class_name) LIKE '%' || LOWER(#{search.keyword}) || '%'
+					</when>
+				</choose>   
+				GROUP BY
+				  	t.teacher_id, t.name, t.birth, t.phone, t.salary, t.user_id, u.store_name, t.cd_status, b.bname
+				ORDER BY t.name ASC) result1) 
+		WHERE rnum BETWEEN #{page.startRowNum} AND #{page.endRowNum}
+	</select>
+	
+	<!-- 조건에 맞는 강사 수 count -->
+	<select id="getCount" parameterType="TeacherSearchPageDto" resultType="int">
+		SELECT COUNT(DISTINCT t.teacher_id)
+		FROM tb_teacher t			
+			LEFT JOIN tb_class c ON t.teacher_id = c.teacher_id
+			LEFT JOIN tb_user u ON t.user_id = u.user_id
+			WHERE
+			    t.user_id = #{search.userId}
+			<choose>
+				<when test="search.state == 'WORK'">
+					AND t.cd_status = 'WORK'
+				</when>
+				<when test="search.state == 'T_QUIT'">
+					AND t.cd_status = 'T_QUIT'
+				</when>
+				<when test="search.state == 'WHOLE'">
+
+				</when>
+			</choose>
+			<choose>
+				<when test="search.condition == 'TEACHER'">
+					AND LOWER(t.name) LIKE '%' || LOWER(#{search.keyword}) || '%'
+				</when>
+				<when test="search.condition == 'CLASS'">
+					AND LOWER(c.class_name) LIKE '%' || LOWER(#{search.keyword}) || '%'
+				</when>
+			</choose>   
+	</select>
+	
+	<select id="getClassteacher" parameterType="int" resultType="com.example.FinalProject.dto.HjTeacherDto">
+		select * from tb_teacher WHERE USER_ID=#{userId} AND CD_STATUS ='WORK'
+	</select>
+	
+	<select id="getPhoneCount" resultType="int">
+		SELECT COUNT(*) 
+		FROM tb_teacher 
+		WHERE phone = #{phone}
+	</select>
+	
+</mapper>

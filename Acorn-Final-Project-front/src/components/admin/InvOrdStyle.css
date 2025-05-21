@@ -1,0 +1,42 @@
+
+
+.div-inv-detail {
+  height: 900px;
+  background-color: rgb(233, 243, 237);
+}
+
+.table-wrapper {
+  max-height: 700px;
+  overflow-y: auto;
+  border: 1px solid white;
+}
+
+.table-wrapper thead th {
+  position: sticky;
+  top: 0;
+  background-color: whitesmoke;
+  z-index: 1;
+}
+
+.table-wrapper-order {
+  height: 280px;
+  overflow-y: auto;
+  border: 1px solid white;
+}
+
+.table-wrapper-order thead th {
+  position: sticky;
+  top: 0;
+  background-color: white;
+  z-index: 1;
+}
+
+.bg-gray {
+  background: rgb(240, 240, 240)
+}
+
+.fixed-row {
+  min-height: 60px;
+  height: 60px;
+  vertical-align: middle;
+}

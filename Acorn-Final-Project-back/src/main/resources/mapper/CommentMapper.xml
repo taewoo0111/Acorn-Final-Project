@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="comment">
+	<!-- 댓글 추가 -->
+	<insert id="insert" parameterType="commentDto">
+		INSERT INTO comments
+		(num, writer, content, targetWriter, postNum, parentNum, createdAt)
+		VALUES (#{num}, #{writer}, #{content}, #{targetWriter}, #{postNum}, #{parentNum}, SYSDATE) 
+	</insert>
+	
+	<!-- 댓글 수정 -->
+    <update id="update" parameterType="commentDto">
+        UPDATE comments
+        SET content = #{content}
+        WHERE num = #{num}
+    </update>
+	
+	<!-- 댓글 삭제 (deleted 필드를 'yes'로 변경) -->
+    <update id="delete" parameterType="long">
+        UPDATE comments
+        SET deleted = 'yes'
+        WHERE num = #{num}
+    </update>
+    
+    <!-- 새로운 댓글 번호 가져오기 (시퀀스) -->
+    <select id="getSequence" resultType="long">
+        SELECT comments_seq.NEXTVAL 
+        FROM DUAL
+    </select>
+    
+    <!-- 댓글 개수 가져오기 -->
+    <select id="getCount" parameterType="long" resultType="int">
+        SELECT COUNT(*) 
+        FROM comments 
+        WHERE postNum = #{postNum}
+    </select>
+    
+    <!-- 특정 댓글 정보 가져오기 -->
+    <select id="getData" parameterType="long" resultType="commentDto">
+        SELECT comments.num, writer, content, targetWriter, postNum,
+               parentNum, deleted, comments.createdAt, profileImage
+        FROM comments 
+        JOIN users ON comments.writer = users.userName
+        WHERE comments.num = #{num}
+    </select>
+    
+    <!-- 댓글 목록 가져오기 (페이징 지원) -->
+    <select id="getList" parameterType="commentDto" resultType="commentDto">
+        SELECT * FROM (
+            SELECT result1.*, ROWNUM AS rnum FROM (
+                SELECT comments.num, writer, content, targetWriter, postNum, 
+                       parentNum, deleted, comments.createdAt, profileImage
+                FROM comments 
+                JOIN users ON comments.writer = users.userName
+                WHERE postNum = #{postNum}
+                ORDER BY parentNum DESC, num ASC
+            ) result1
+        )
+        WHERE rnum BETWEEN #{startRowNum} AND #{endRowNum}
+    </select>
+</mapper>

@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.FinalProject.mapper.AdminSalesMapper">
+
+	<select id="getAdminSalesList" parameterType="map" resultType="JsAdminSalesDto">
+		SELECT *
+		FROM (
+		    SELECT result1.*, rownum AS rnum
+		    FROM (
+		        SELECT 
+		            s.admin_sale_id, 
+		            s.user_id, 
+		            TO_CHAR(s.cre_date, 'YYYY-MM-DD') AS cre_date, 
+		            TO_CHAR(s.edit_date, 'YYYY-MM-DD') AS edit_date, 
+		            s.sale_name, 
+		            s.price, 
+		            s.cd_acode, 
+		            a.aname,        
+		            s.cd_bcode, 
+		            b.bname,         
+		            s.auto
+		        FROM tb_admin_sale s
+		        LEFT JOIN tb_bcode b ON s.cd_bcode = b.bcode
+		        LEFT JOIN tb_acode a ON s.cd_acode = a.acode
+		        WHERE 1 = 1
+		        <if test="userId != null and userId != ''">
+		            AND s.user_id LIKE '%' || #{userId} || '%'
+		        </if>
+		        <if test="checkedItems != null and checkedItems.size() > 0">
+		            AND s.cd_bcode IN
+		            <foreach item="cd_bcode" collection="checkedItems" open="(" separator="," close=")">
+		                #{cd_bcode}
+		            </foreach>
+		        </if>
+		        ORDER BY cre_date desc
+		    ) result1
+		)
+		WHERE rnum BETWEEN #{startRowNum} AND #{endRowNum}
+	</select>
+	<select id="getCountDefault" resultType="int">
+	    SELECT COUNT(*) FROM tb_admin_sale
+	</select>
+	<select id="getCount" parameterType="map" resultType="int">
+		  SELECT COUNT(*)
+		    FROM tb_admin_sale 
+		    <where>
+		        <if test="user_id != null and user_id != ''">
+		            AND user_id LIKE '%' || #{userId} || '%'
+		        </if>
+		        <if test="checkedItems != null and checkedItems.size() > 0">
+		            AND cd_bcode IN
+		            <foreach item="cd_bcode" collection="checkedItems" open="(" separator="," close=")">
+		                #{cd_bcode}
+		            </foreach>
+		        </if>
+		    </where>
+	</select>
+	<select id="getAdminSaleById" parameterType="int" resultType="JsAdminSalesDto">
+		select * from tb_admin_sale
+		where admin_sale_id=#{adminSaleId}
+	</select>
+	<insert id="insertAdminSales" parameterType="JsAdminSalesDto">
+	    insert into tb_admin_sale (
+	      admin_sale_id, user_id, cre_date, edit_date, sale_name, price, cd_acode, cd_bcode, auto
+	    ) values (
+	      seq_admin_sale_id.nextval,
+	      #{userId},
+	      sysdate,
+	      sysdate,
+	      #{saleName},
+	      #{price},
+  	      (select acode from tb_acode where aname = #{aname} and deleted = 'NO'),
+	      (select bcode from tb_bcode where bname = #{bname} and deleted = 'NO'),
+	      'NO'
+	    )			
+	</insert>
+	<update id="editAdminSales" parameterType="JsAdminSalesDto">
+		  update tb_admin_sale
+		  set user_id = #{userId},
+		      edit_date = sysdate,
+		      sale_name = #{saleName},
+		      price = #{price},
+		      cd_acode = (select acode from tb_acode where aname = #{aname} and deleted = 'NO'),
+		      cd_bcode = (select bcode from tb_bcode where bname = #{bname} and deleted = 'NO'),
+		      auto = 'NO'
+		  where admin_sale_id = #{adminSaleId}
+	</update>
+	<delete id="deleteAdminSales">
+		delete from tb_admin_sale
+		where admin_sale_id=#{adminSaleId}
+	</delete>
+
+	
+
+	<select id="getSYear" parameterType="Integer" resultType="JsAdminSalesStatDto">
+		select to_CHAR(cre_date,'YYYY') sYear, user_id
+		from tb_admin_sale 
+		where user_id =#{userId}
+		group by user_id, to_char(cre_date,'YYYY')
+		order by sYear desc
+	</select>
+	<select id="getSMonth" parameterType="map" resultType="JsAdminSalesStatDto">
+		select to_CHAR(cre_date,'YYYY') sYear, to_char(cre_date, 'MM') sMonth, user_id
+		from tb_admin_sale 
+		where user_id=#{userId} and to_char(cre_date,'YYYY')=#{sYear}  
+		group by user_id, to_char(cre_date,'YYYY'),to_char(cre_date, 'MM')
+		order by sMonth asc
+	</select>
+	<select id="getAdminProfitStatByYear" parameterType="map" resultType="JsAdminSalesStatDto">
+	 	select to_CHAR(cre_date,'YYYY') sYear, to_char(cre_date,'YYYY-MM') sMonth, user_id, sum(price) price
+	 	from tb_admin_sale	 	
+	 	where user_id=#{userId} and cd_acode='PROFIT' and to_char(cre_date, 'YYYY')=#{sYear}
+	 	group by user_id, to_char(cre_date, 'YYYY'), to_char(cre_date,'YYYY-MM')
+	 	order by sMonth asc
+	</select>
+	<select id="getAdminCostStatByYear" parameterType="map" resultType="JsAdminSalesStatDto">
+	 	select to_CHAR(cre_date,'YYYY') sYear, to_char(cre_date,'YYYY-MM') sMonth, user_id, sum(price) price
+	 	from tb_admin_sale	 	
+	 	where user_id=#{userId} and cd_acode='COST' and to_char(cre_date, 'YYYY')=#{sYear}
+	 	group by user_id, to_char(cre_date, 'YYYY'), to_char(cre_date,'YYYY-MM')
+	 	order by sMonth asc
+	</select>
+	<select id="getSYearList" parameterType="Integer" resultType="JsAdminSalesStatDto">
+	    SELECT DISTINCT TO_CHAR(c.start_date, 'YYYY') AS sYear
+	    FROM tb_class c
+	    LEFT JOIN tb_bcode b ON c.cd_lecture = b.bcode
+	    LEFT JOIN tb_acode a ON b.acode = a.acode
+	    WHERE c.user_id = #{userId}
+	      AND a.acode = 'LECTURE'
+	      AND a.deleted = 'NO'
+	      AND b.deleted = 'NO'
+	      AND c.cd_status IN ('START', 'END')
+	      AND b.bcode IN (
+	              SELECT bcode FROM tb_bcode WHERE acode = 'LECTURE' AND deleted = 'NO'
+	          )
+	    ORDER BY sYear DESC
+	</select>
+	<select id="getSMonthList" parameterType="map" resultType="JsAdminSalesStatDto">
+	    SELECT DISTINCT TO_CHAR(c.start_date, 'MM') AS sMonth
+	    FROM tb_class c
+	    LEFT JOIN tb_bcode b ON c.cd_lecture = b.bcode
+	    LEFT JOIN tb_acode a ON b.acode = a.acode
+	    WHERE c.user_id = #{userId}
+	      AND TO_CHAR(c.start_date, 'YYYY') = #{sYear}
+	      AND a.acode = 'LECTURE'
+	      AND a.deleted = 'NO'
+	      AND b.deleted = 'NO'
+	      AND c.cd_status IN ('START', 'END')
+	      AND  b.bcode IN (
+	              SELECT bcode FROM tb_bcode WHERE acode = 'LECTURE' AND deleted = 'NO'
+	          )
+	    ORDER BY sMonth ASC
+	</select>
+	<select id="getAdminSalesStatByLectYearly" parameterType="map" resultType="JsAdminSalesStatDto">
+	    SELECT sYear, cd_lecture, SUM(total) total, lecture_name 
+	    FROM (
+	        SELECT 
+	            TO_CHAR(c.start_date, 'YYYY') AS sYear, 
+	            c.cd_lecture, b.bname as lecture_name,
+	            COUNT(sc.student_id) AS student_count, 
+	            c.price price,
+	            COUNT(sc.student_id) * c.price AS total
+	        FROM tb_class c
+	        LEFT JOIN tb_student_class sc ON c.class_id = sc.class_id 
+	        LEFT JOIN tb_bcode b ON c.cd_lecture = b.bcode              
+	        WHERE c.user_id = #{userId} 
+	          AND TO_CHAR(c.start_date, 'YYYY') = #{sYear}
+	          AND b.acode = 'LECTURE' 
+	          AND c.cd_status IN ('START', 'END')
+	          AND b.bcode IN (
+	              SELECT bcode FROM tb_bcode WHERE acode = 'LECTURE' AND deleted = 'NO'
+	          )
+	        GROUP BY 
+	            TO_CHAR(c.start_date, 'YYYY'), c.cd_lecture, c.price, b.bname
+	        ORDER BY sYear, c.cd_lecture
+	    )
+	    GROUP BY sYear, cd_lecture, lecture_name
+	    order by sYear desc
+	</select>
+	<select id="getAdminSalesStatByLectMonthly" parameterType="map" resultType="JsAdminSalesStatDto">
+	    SELECT 
+	        TO_CHAR(c.start_date, 'YYYY') sYear,
+	        TO_CHAR(c.start_date, 'MM') AS sMonth, 
+	        c.cd_lecture, b.bname AS lecture_name,
+	        COUNT(sc.student_id) AS student_count, 
+	        c.price price, 
+	        COUNT(sc.student_id) * c.price AS total,
+	        b.bcode bcode
+	    FROM tb_class c
+	    LEFT JOIN tb_student_class sc ON c.class_id = sc.class_id 
+	    LEFT JOIN tb_bcode b ON c.cd_lecture = b.bcode
+	    WHERE c.user_id = #{userId}  
+	      AND b.acode = 'LECTURE' 
+	      AND c.cd_status IN ('START', 'END')
+	      AND TO_CHAR(c.start_date, 'YYYY') = #{sYear}
+	      AND TO_CHAR(c.start_date, 'MM') = #{sMonth}
+	      AND b.bcode IN (
+	          SELECT bcode FROM tb_bcode WHERE acode = 'LECTURE' AND deleted = 'NO'
+	      )
+	    GROUP BY 
+	        TO_CHAR(c.start_date, 'YYYY'), TO_CHAR(c.start_date, 'MM'), c.cd_lecture, b.bname, c.price, b.bcode
+	    ORDER BY sMonth desc, c.cd_lecture
+	</select>
+	
+	
+	
+	<!-- 수업상태값변경시 sales테이블에 insert하는 메소드  -->
+	<insert id="insertClsProfitToAdmin" parameterType="com.example.FinalProject.dto.HjClassDto">
+		insert into tb_admin_sale
+		(admin_sale_id, user_id, cre_date, edit_date,sale_name,price, cd_acode, cd_bcode,auto)
+		values 
+		(seq_admin_sale_id.nextval,#{userId}, sysdate, sysdate, #{className}, #{price}, 'PROFIT', 'CLS', 'YES') 
+	</insert>
+
+
+
+
+	<insert id="insertOrderApprovedCostToAdmin" parameterType="JsOrderToCostDto">
+		insert into tb_admin_sale
+		(admin_sale_id, user_id,cre_date,edit_date, sale_name,price, cd_acode, cd_bcode,auto)
+		values 
+		(seq_admin_sale_id.nextval, #{userId}, sysdate, sysdate, #{saleName}, #{price}, 'COST', 'ITEM', 'YES') 
+	</insert>
+	<insert id="insertOrderApprovedCostToCeo" parameterType="JsOrderToCostDto">
+		insert into tb_ceo_sale
+		(ceo_sale_id, user_id,cre_date,edit_date, sale_name,price, cd_acode, cd_bcode,auto)
+		values 
+		(seq_ceo_sale_id.nextval, #{userId}, sysdate, sysdate, #{saleName}, #{price}, 'PROFIT', 'ITEM', 'YES') 
+	</insert>
+	<select id="getApprovedOrderInfoByOrderId" parameterType="int" resultType="JsOrderToCostDto">
+		  SELECT order_id, user_id, ord_date, cd_status, order_name
+		  FROM tb_order 
+		  WHERE user_id=#{userId} and order_id=#{orderId}
+	</select>
+	<select id="getOrderDetailInfoByOrderId" parameterType="map" resultType="JsOrderToCostDto">
+	  	  SELECT 
+		    od.order_detail_id, 
+		    od.product_id,
+		    p.product_name, 
+		    p.cd_category, 
+		    od.quantity, 
+		    od.price,
+		    (od.quantity * od.price) AS total,
+		    odr.user_id
+		  FROM tb_order_detail od
+		  JOIN tb_product p ON od.product_id = p.product_id
+		  JOIN tb_order odr ON od.order_id = odr.order_id
+		  WHERE odr.user_id = #{userId}
+		    AND odr.order_id = #{orderId}
+	</select>
+</mapper>

@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.FinalProject.mapper.DashBoardMapper">
+	
+	<select id="getStudentsAll" resultType="int">
+		select count(*) from tb_student
+	</select>
+	
+	<select id="getUserAll" resultType="int">
+		select count(*) from tb_user where deleted = 'NO'
+	</select>
+	
+	<select id="getLastYearCeoOrderSale" parameterType="int">
+		select SUM(price)
+		from tb_ceo_sale
+		where TO_CHAR(cre_date, 'YYYY') = #{lastYear}
+	</select>
+	
+	<select id="getLastYearMonthlySales" parameterType="int" resultType="map">
+		select
+			TO_CHAR(cre_date, 'MM') as month,
+			SUM(price) AS total_price
+		from tb_ceo_sale
+		where TO_CHAR(cre_date, 'YYYY') = #{lastYear}
+		group by TO_CHAR(cre_date, 'MM')
+		order by month 
+	</select>
+	
+	<select id="getPopularLectureTop3" resultType="map">
+		select * 
+		from 
+			(select cd_lecture, count(*) as lecture_count
+			 from tb_class
+			 group by cd_lecture
+			 order by lecture_count desc
+			)
+		where ROWNUM &lt;=3
+	</select>
+	
+	
+	
+	<select id="getStudentByUserId" parameterType="int">
+		select count(*)
+		from tb_student
+		where user_id = #{userId} and cd_status = 'STUDY'
+	</select>
+	
+	<select id="getTeacherByUserId" parameterType="int">
+		select count(*)
+		from tb_teacher
+		where user_id = #{userId} and cd_status = 'WORK'
+	</select>
+	
+	<select id="getClassByUserId" parameterType="int">
+		select count(*)
+		from tb_class
+		where user_id = #{userId} and cd_status in ('BEFORE', 'READY', 'START')
+	</select>
+	
+	<select id="getLastMonthlySalesByUserId" resultType="map" parameterType="map">
+		select
+			TO_CHAR(cre_date, 'MM') as month,
+			SUM(price) as total_price
+		from tb_admin_sale
+		where TO_CHAR(cre_date, 'YYYY') = #{lastYear}
+			and user_id = #{userId}
+			and cd_acode = 'PROFIT'
+		group by TO_CHAR(cre_date, 'MM')
+		order by month
+	</select> 
+	
+	<select id="getPopularLectureTop3ByUserId" resultType="map" parameterType="int">
+		select *
+		from
+			(select cd_lecture, count(*) as lecture_count
+			 from tb_class
+			 where user_id = #{userId}
+			 group by cd_lecture
+			 order by lecture_count desc
+			)
+		where ROWNUM &lt;=3
+	</select>
+	
+</mapper>
